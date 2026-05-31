@@ -18,7 +18,10 @@ import {
   updateDoc,
   onSnapshot,
   increment,
-  User as FirebaseUser
+  User as FirebaseUser,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  updateProfile
 } from './lib/firebase';
 import { 
   APIProvider, 
@@ -421,6 +424,12 @@ export default function App() {
   const [user, setUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authDisplayName, setAuthDisplayName] = useState('');
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
   
   const [location, setLocation] = useState('Kathmandu');
   const [searchQuery, setSearchQuery] = useState('');
@@ -679,6 +688,65 @@ export default function App() {
       localStorage.setItem('sn_reports', JSON.stringify(updatedReports));
     }
     setIsSyncing(false);
+  };
+
+  const handleEmailPasswordAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    
+    if (!trimmedEmail || !trimmedPassword) {
+      setAuthError(lang === 'en' ? 'Please fill in all fields.' : 'कृपया सबै क्षेत्रहरू भर्नुहोस्।');
+      return;
+    }
+    if (trimmedPassword.length < 6) {
+      setAuthError(lang === 'en' ? 'Password must be at least 6 characters.' : 'पासवर्ड कम्तिमा ६ अक्षरको हुनुपर्छ।');
+      return;
+    }
+    if (authMode === 'register' && !authDisplayName.trim()) {
+      setAuthError(lang === 'en' ? 'Please enter a display name.' : 'कृपया प्रदर्शन नाम प्रविष्ट गर्नुहोस्।');
+      return;
+    }
+
+    setAuthLoading(true);
+    try {
+      if (authMode === 'login') {
+        await signInWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
+        setShowLoginModal(false);
+        setEmail('');
+        setPassword('');
+        setAuthDisplayName('');
+      } else {
+        const userCredential = await createUserWithEmailAndPassword(auth, trimmedEmail, trimmedPassword);
+        if (userCredential.user) {
+          await updateProfile(userCredential.user, {
+            displayName: authDisplayName.trim()
+          });
+        }
+        setShowLoginModal(false);
+        setEmail('');
+        setPassword('');
+        setAuthDisplayName('');
+      }
+    } catch (err: any) {
+      console.error(err);
+      let errMsg = lang === 'en' ? 'An authentication error occurred. Please try again.' : 'प्रमाणीकरण त्रुटि भयो। कृपया पुन: प्रयास गर्नुहोस्।';
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errMsg = lang === 'en' ? 'Invalid email or password.' : 'अवैध इमेल वा पासवर्ड।';
+      } else if (err.code === 'auth/email-already-in-use') {
+        errMsg = lang === 'en' ? 'An account with this email already exists.' : 'यो इमेल भएको खाता पहिले नै अवस्थित छ।';
+      } else if (err.code === 'auth/invalid-email') {
+        errMsg = lang === 'en' ? 'Please enter a valid email address.' : 'कृपया मान्य इमेल ठेगाना प्रविष्ट गर्नुहोस्।';
+      } else if (err.code === 'auth/weak-password') {
+        errMsg = lang === 'en' ? 'Password is too weak.' : 'पासवर्ड धेरै कमजोर छ।';
+      } else if (err.message) {
+        errMsg = err.message;
+      }
+      setAuthError(errMsg);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   const submitReport = async (e: React.FormEvent) => {
@@ -2007,54 +2075,165 @@ export default function App() {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="bg-white w-full max-w-lg rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden"
+              className="bg-white w-full max-w-md rounded-[2.5rem] p-6 md:p-8 shadow-2xl relative overflow-hidden max-h-[95vh] overflow-y-auto"
             >
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-ochre-400 via-ochre-600 to-ochre-400 animate-gradient-x" />
               <button 
-                onClick={() => setShowLoginModal(false)}
+                onClick={() => {
+                  setShowLoginModal(false);
+                  setAuthError(null);
+                }}
                 className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-900 transition-colors"
               >
                 <X size={24} />
               </button>
 
-              <div className="text-center space-y-8 py-4">
-                <div className="w-20 h-20 bg-ochre-50 rounded-3xl flex items-center justify-center text-ochre-600 mx-auto shadow-inner">
-                  <Leaf size={40} />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-3xl font-black text-slate-900 leading-tight">Welcome to Swachha Nepal</h2>
-                  <p className="text-slate-500 text-sm font-medium">Join thousands of citizens in protecting our environment. Register your efforts and help us track pollution in real-time.</p>
-                </div>
-
-                <div className="space-y-4 pt-4">
-                  <button 
-                    onClick={async () => {
-                      try {
-                        await signInWithGoogle();
-                        setShowLoginModal(false);
-                      } catch (err) {
-                        console.error(err);
-                      }
-                    }}
-                    className="w-full h-14 bg-white border-2 border-slate-100 flex items-center justify-center gap-4 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm active:scale-[0.98]"
-                  >
-                    <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
-                    <span>Continue with Google</span>
-                  </button>
-                  
-                  <div className="flex items-center gap-4 py-2">
-                    <div className="flex-1 h-px bg-slate-100" />
-                    <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">Secure Access</span>
-                    <div className="flex-1 h-px bg-slate-100" />
+              <div className="space-y-6 pt-4">
+                <div className="text-center space-y-2">
+                  <div className="w-16 h-16 bg-ochre-50 rounded-2xl flex items-center justify-center text-ochre-600 mx-auto shadow-inner mb-2">
+                    <Leaf size={32} />
                   </div>
-
-                  <p className="text-[10px] text-slate-400 leading-relaxed max-w-xs mx-auto">
-                    By continuing, you agree to Swachha Nepal's <span className="text-ochre-600 cursor-pointer underline">Terms of Service</span> and <span className="text-ochre-600 cursor-pointer underline">Privacy Policy</span>.
+                  <h2 className="text-2xl font-black text-slate-900 leading-tight">
+                    {lang === 'en' ? 'Swachha Nepal' : 'स्वच्छ नेपाल'}
+                  </h2>
+                  <p className="text-slate-500 text-xs font-medium">
+                    {lang === 'en' 
+                      ? 'Join our community to monitor and improve Nepalese environment quality.' 
+                      : 'नेपाली वातावरणको गुणस्तर अनुगमन र सुधार गर्न हाम्रो समुदायमा सामेल हुनुहोस्।'}
                   </p>
                 </div>
+
+                {/* Tab Switcher */}
+                <div className="flex border-b border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('login'); setAuthError(null); }}
+                    className={cn(
+                      "flex-1 pb-3 text-sm font-bold transition-all border-b-2 text-center",
+                      authMode === 'login' 
+                        ? "border-ochre-600 text-ochre-700 font-extrabold" 
+                        : "border-transparent text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    {lang === 'en' ? 'Sign In' : 'लगइन गर्नुहोस्'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setAuthMode('register'); setAuthError(null); }}
+                    className={cn(
+                      "flex-1 pb-3 text-sm font-bold transition-all border-b-2 text-center",
+                      authMode === 'register' 
+                        ? "border-ochre-600 text-ochre-700 font-extrabold" 
+                        : "border-transparent text-slate-400 hover:text-slate-600"
+                    )}
+                  >
+                    {lang === 'en' ? 'Register' : 'दर्ता गर्नुहोस्'}
+                  </button>
+                </div>
+
+                <form onSubmit={handleEmailPasswordAuth} className="space-y-4">
+                  {authMode === 'register' && (
+                    <div className="space-y-1.5 text-left">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                        {lang === 'en' ? 'Display Name' : 'प्रदर्शन नाम'}
+                      </label>
+                      <div className="relative">
+                        <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={authDisplayName}
+                          onChange={(e) => setAuthDisplayName(e.target.value)}
+                          placeholder={lang === 'en' ? 'e.g. Ram Bahadur' : 'जस्तै: राम बहादुर'}
+                          className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-ochre-500/20 focus:border-ochre-500 text-sm font-medium transition-all"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {lang === 'en' ? 'Email Address' : 'इमेल ठेगाना'}
+                    </label>
+                    <div className="relative">
+                      <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@example.com"
+                        className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-ochre-500/20 focus:border-ochre-500 text-sm font-medium transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5 text-left">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                      {lang === 'en' ? 'Password' : 'पासवर्ड'}
+                    </label>
+                    <div className="relative">
+                      <ShieldCheck size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••"
+                        className="w-full h-12 pl-11 pr-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-ochre-500/20 focus:border-ochre-500 text-sm font-medium transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {authError && (
+                    <div className="flex items-start gap-2 bg-red-50 text-red-700 p-3.5 rounded-2xl text-xs font-semibold text-left leading-relaxed">
+                      <AlertCircle size={14} className="mt-0.5 shrink-0 text-red-500" />
+                      <span>{authError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={authLoading}
+                    className="w-full h-12 bg-ochre-600 hover:bg-ochre-700 text-white rounded-2xl font-bold transition-all shadow-md active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {authLoading ? (
+                      <RefreshCw size={16} className="animate-spin" />
+                    ) : (
+                      authMode === 'login' 
+                        ? (lang === 'en' ? 'Sign In' : 'साइन इन गर्नुहोस्') 
+                        : (lang === 'en' ? 'Create Account' : 'खाता सिर्जना गर्नुहोस्')
+                    )}
+                  </button>
+                </form>
+
+                <div className="flex items-center gap-4 py-1">
+                  <div className="flex-1 h-px bg-slate-100" />
+                  <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                    {lang === 'en' ? 'Or login with' : 'वा मार्फत लगइन गर्नुहोस्'}
+                  </span>
+                  <div className="flex-1 h-px bg-slate-100" />
+                </div>
+
+                <button 
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await signInWithGoogle();
+                      setShowLoginModal(false);
+                    } catch (err) {
+                      console.error(err);
+                    }
+                  }}
+                  className="w-full h-12 bg-white border-2 border-slate-100 flex items-center justify-center gap-3 rounded-2xl font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-200 transition-all shadow-sm active:scale-[0.98]"
+                >
+                  <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
+                  <span>Google</span>
+                </button>
+                
+                <p className="text-[10px] text-slate-400 leading-relaxed max-w-xs mx-auto text-center pt-2">
+                  {lang === 'en' 
+                    ? 'By continuing, you agree to Swachha Nepal\'s Terms and Privacy Policy.' 
+                    : 'जारी राखेर, तपाईं स्वच्छ नेपालको सर्तहरू र गोपनीयता नीतिमा सहमत हुनुहुन्छ।'}
+                </p>
               </div>
-              
-              <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-ochre-50 rounded-full blur-3xl opacity-50" />
             </motion.div>
           </motion.div>
         )}
