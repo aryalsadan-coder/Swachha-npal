@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} { allow read, write: if false; }
+
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId 
+          && data.email is string && data.email.size() < 100
+          && data.points is int && data.points >= 0
+          && data.badges is list && data.badges.size() < 20
+          && data.joinedAt is string
+          && data.keys().hasAll(['uid', 'email', 'points', 'badges', 'joinedAt']);
+      }
+
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data) && request.resource.data.points == 0;
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(request.resource.data) && (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['points', 'badges', 'displayName', 'photoURL'])
+        && request.resource.data.points >= resource.data.points
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.joinedAt == resource.data.joinedAt
+      );
+    }
+
+    match /reports/{reportId} {
+      function isValidReport(data) {
+        return data.userId == request.auth.uid
+          && data.location is string && data.location.size() < 500
+          && data.description is string && data.description.size() < 1000
+          && data.type is string
+          && data.status in ['pending', 'verified', 'rejected']
+          && (data.photoUrl == null || data.photoUrl is string)
+          && data.createdAt == request.time
+          && data.keys().hasAll(['userId', 'userName', 'location', 'description', 'type', 'status', 'createdAt']);
+      }
+
+      allow list: if isSignedIn();
+      allow get: if isSignedIn() && isValidId(reportId);
+      allow create: if isSignedIn() && isValidId(reportId) && isValidReport(request.resource.data) && request.resource.data.keys().size() <= 8;
+      allow update: if false;
+    }
+  }
+}

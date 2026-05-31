@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "User": {
+      "title": "Environmental Guardian",
+      "description": "User profile containing gamification data like points and badges.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "points": { "type": "integer", "default": 0 },
+        "badges": { "type": "array", "items": { "type": "string" } },
+        "joinedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "points", "joinedAt"]
+    },
+    "Report": {
+      "title": "Pollution Report",
+      "description": "Citizen-submitted report of environmental issues.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "location": { "type": "string" },
+        "description": { "type": "string" },
+        "type": { "type": "string" },
+        "photoUrl": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "verified", "rejected"] },
+        "pointsAwarded": { "type": "boolean", "default": false },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "location", "type", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "Global user profiles." },
+    "/reports/{reportId}": { "schema": "Report", "description": "Environmental reports." }
+  }
+}

@@ -1,0 +1,61 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-serif: "Playfair Display", serif;
+  
+  --color-ochre-50: #fdf8f1;
+  --color-ochre-100: #f9eed9;
+  --color-ochre-200: #f1d9b0;
+  --color-ochre-300: #e6bd7d;
+  --color-ochre-400: #da9d53;
+  --color-ochre-500: #cc7722; /* Yellow Ochre */
+  --color-ochre-600: #b5621d;
+  --color-ochre-700: #964d1a;
+  --color-ochre-800: #7a3f1a;
+  --color-ochre-900: #643518;
+}
+
+@layer base {
+  body {
+    @apply bg-white text-slate-900 font-sans antialiased;
+  }
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md border border-ochre-100 shadow-sm;
+}
+
+.gradient-text {
+  @apply bg-clip-text text-transparent bg-linear-to-r from-ochre-600 to-amber-600;
+}
+
+.markdown-body {
+  @apply text-slate-700 leading-relaxed space-y-4;
+}
+
+.markdown-body h1, .markdown-body h2, .markdown-body h3 {
+  @apply font-semibold text-slate-900 mt-6 mb-2;
+}
+
+.markdown-body p {
+  @apply mb-4;
+}
+
+.markdown-body ul {
+  @apply list-disc pl-5 mb-4;
+}
+
+.markdown-body li {
+  @apply mb-1;
+}
+
+.ochre-card {
+  @apply bg-white border border-ochre-100 rounded-3xl p-6 shadow-sm hover:shadow-md transition-all;
+}
+
+.ochre-button {
+  @apply bg-ochre-500 hover:bg-ochre-600 text-white font-bold px-6 py-3 rounded-full transition-all flex items-center justify-center gap-2;
+}

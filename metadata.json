@@ -1,0 +1,5 @@
+{
+  "name": "Swachha Nepal",
+  "description": "Clean Nepal: Real-time air and water quality monitoring for Nepal's rivers and cities.",
+  "requestFramePermissions": ["geolocation", "camera"]
+}
